@@ -1,0 +1,13 @@
+.card-img {
+    width: 130px;
+    height: 90px
+}
+
+.container {
+    display: block;
+    margin: 0 auto;
+}
+
+.fd {
+    margin-left: 50px;
+}

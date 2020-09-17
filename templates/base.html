@@ -1,0 +1,42 @@
+{%  include "template.html" %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% block header %}
+        <title>World Latest News</title>
+    {% endblock %}
+</head>
+<body>
+{% block menu %}{% endblock %}
+<div class="row mt-2">
+
+    <div class="col-sm-9">
+    {% block flash %}
+    {% endblock %}
+        {% for article in articles %}
+            <div class="card ws">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-sm-1">
+                            <img class="card-img" src="{{ article.urlToImage }}" alt="No image">
+                        </div>
+                        <div class="fd col-sm-10">
+                            <h5 class="card-title">{{ article.title }}</h5>
+                            {% if article.description %}
+                                {% set desc = article.description|truncate_text(129) %}
+                                {% set url = article.url %}
+                            {% else %}
+                                {% set desc = '' %}
+                            {% endif %}
+                            <p class="card-text">{{ desc }}</p>
+                            <button class="btn btn-primary" onclick="{{ send_data(url) }}">Read more...</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+</div>
+</body>
+</html>
