@@ -1,22 +1,9 @@
-{% include "template.html" %}
+{% extends "index.html" %}
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    {% block header %}
-        <title>World Latest News</title>
-    {% endblock %}
-</head>
-<body>
-{% block menu %}{% endblock %}
-<div class="row mt-2">
-    {% block topics %}
-    {% endblock %}
-    <div class="col-sm-9">
-        {% block flash %}
-        {% endblock %}
+{% block container %}
+    
+    <div>
         {{ data }}
     </div>
-</div>
-</body>
-</html>
+
+{% endblock %}
