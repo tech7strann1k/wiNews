@@ -13,14 +13,12 @@
                         <h5 class="card-title">{{ article.title }}</h5>
                         {% if article.description %}
                             {% set desc = article.description|truncate_text(129) %}
-                            {% set url = article.url %}
+                        {% set url = article.url %}
                         {% else %}
                             {% set desc = '' %}
                         {% endif %}
                         <p class="card-text">{{ desc }}</p>
-                        <button class="btn btn-primary" onclick="sendData('{{ url }}')">
-                                Read more...
-                        </button>
+                        <a href="/articles/?url={{ url }}" class="Button btn btn-primary">Read more</a>
                     </div>
                 </div>
             </div>

@@ -13,21 +13,15 @@ categories = ['business', 'technology', 'entertainment',
 @app.route('/')
 def index():
     query = None
-    if request.args.get('url'):
-        url = request.args['url']
-        data = parser.parse_url(url)
-        print(data)
-        return f'<div>{data}</div>'
-    else:
-        if request.args.get('query'):
-            query = request.args['query']
-        data = parser.request_api(query=query)
-        articles = data['articles']
-        if not articles:
-            flash(f'Not found any results for {query}')
-        return render_template('index.html', menu=menu,
-                               categories=categories,
-                               articles=articles)
+    if request.args.get('query'):
+        query = request.args['query']
+    data = parser.request_api(query=query)
+    articles = data['articles']
+    if not articles:
+        flash(f'Not found any results for {query}')
+    return render_template('index.html', menu=menu,
+                            categories=categories,
+                            articles=articles)
 
 @app.route('/topics/<topic>/')
 def add_category(topic):
@@ -39,14 +33,14 @@ def add_category(topic):
                            articles=articles)
 
 
-@app.route('/articles/<url>/')
-def read_url(url):
-    # if request.args.get('url'):
-    #     url = request.args['url']
-    data = parser.parse_url(url)
-    print(data)
-    return f'<div>{data}</div>'
-
+@app.route('/articles/')
+def read_url():
+    if request.args.get('url'):
+        url = request.args['url']
+        data = parser.parse_url(url)
+        return render_template('article.html', menu=menu,
+                                categories=categories, 
+                                data = data)
 
 # if __name__ == '__main__':
 app.jinja_env.filters['truncate_text'] = parser.truncate

@@ -1,9 +1,8 @@
 {% extends "index.html" %}
 
 {% block container %}
-    
     <div>
-        {{ data }}
+      {{ data|safe }}
     </div>
 
 {% endblock %}
