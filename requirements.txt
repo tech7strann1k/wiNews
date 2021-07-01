@@ -12,7 +12,7 @@ idna
 itsdangerous
 Jinja2
 MarkupSafe
-newsapi-python
+pillow
 pycparser 
 pyOpenSSL 
 requests 

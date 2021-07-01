@@ -7,6 +7,7 @@ import traceback
 
 import requests
 from bs4 import BeautifulSoup, NavigableString, Tag
+from io import BytesIO
 import soupsieve as sv
 from PIL import Image
 import lxml
@@ -18,48 +19,53 @@ def request_api(cat=None, query=None):
     data = newsapi.get_top_headlines(q=query, language='ru', country='ru', category=cat)
     return data
 
-headers = 'h1,h2,h3,h4,h5,h6'
+headers = '>h1,>h2,>h3,>h4,>h5,>h6'
+headers_ = headers.replace('>', '')
 
 def get_articles(soup):
-    slc1 = 'article:has( p)'
-    a1 = soup.select_one(slc1)
-    slc2 = 'div:has(> [itemprop="articleBody"]:has( p, div, a))'
-    a2 = soup.select_one(slc2)
-    slc3 = '''div:is([class*="article"], [class*="head"], [class^="article__header"]),
-        div[class^="article_block"]:has(div[class^="article__text"])'''
-    a3 = soup.select(slc3)
-    if a1:
-        return sv.select(slc1, soup)
-    elif a2:
-        s1 = sv.select(f'{slc2} [itemprop="headline"], [itemprop="articleBody"] :has(>p)', soup)
+    slc1 = f'[class*="topic__content"]'
+    a1 = sv.select(slc1, soup)
+    slc2 = '''[class*="article"], [class*="head"],
+           header, [itemprop="articleBody"]:has( p, div, a), [class*="article__header"],
+           div[class^="article_block"]:has(div[class^="article__text"])'''
+    a2 = sv.select(slc2, soup)
+    if len(a1) > 1:
+        print('a1')
+        s1 = sv.iselect(f'''{slc1} img, [class*="article__header"] *, [itemprop="headline"], 
+        [itemprop="articleBody"]:has(>p, >img) *, [itemprop="articleBody"] :has(>p,>img) *''', soup)
         return s1
-    elif a3:
-        return sv.select(f'''div:is([class*="article"], 
-            [class*="head"], [class^="article__header"])''', soup)
+    if len(a2) > 1:
+        print('a2')
+        s2 = sv.iselect(f'''header:has({headers}) > * , [class*=article__header] *, [itemprop=headline], [itemprop="articleBody"]:has(>p, >img) *,  
+            [itemprop="articleBody"] :has(>p,>img) *''', soup)
+        return s2
     else:
-        return sv.select(f'''#div_postbody *, :has(#div_postbody) > :is({headers}), 
+        print('a4')
+        return sv.iselect(f'''#div_postbody *, :has(#div_postbody) > :is({headers}), 
             [itemprop="headline"], .content *''', soup)
 
 def get_href(d, ch):
-    ch_tags = ch.contents
-    for i in range(len(ch_tags)):
-        if isinstance(ch_tags[i], Tag):
-            if ch_tags[i].get('href'):
-                if re.search(r'<img[\S ]+', str(ch_tags[i].contents)):
-                    ch_tags[i] = None
-                if d[0] in ch_tags[i]['href']:
-                    pass
-                else:
-                    match = re.compile(r'\w+:\/\/[\w\-\/\.]+'). \
-                        search(ch_tags[i]['href'])
-                    if match and match[0] != d[0]:
+    try:
+        ch_tags = ch.contents
+        for i in range(len(ch_tags)):
+            if isinstance(ch_tags[i], Tag):
+                if ch_tags[i].get('href'):
+                    if re.search(r'<img[\S ]+', str(ch_tags[i].contents)):
+                        ch_tags[i] = None
+                    if d[0] in ch_tags[i]['href']:
                         pass
                     else:
-                        ch_tags[i]['href'] = f'{d[0]}{ch_tags[i]["href"]}'
-                        ch.insert(i, ch_tags[i])
-            if re.compile(r'h[1-6]|b').search(ch_tags[i].name):
-                ch_tags[i] = None
-
+                        match = re.compile(r'\w+:\/\/[\w\-\/\.]+'). \
+                            search(ch_tags[i]['href'])
+                        if match and match[0] != d[0]:
+                            pass
+                        else:
+                            ch_tags[i]['href'] = f'{d[0]}{ch_tags[i]["href"]}'
+                            ch.insert(i, ch_tags[i])
+                if re.compile(r'h[1-6]|b|img').search(ch_tags[i].name):
+                    ch_tags[i] = None
+    except TypeError:
+        pass
     return ch
 
 def parse_url(url=None):
@@ -67,21 +73,21 @@ def parse_url(url=None):
     soup = BeautifulSoup(response.content, 'lxml')
     d = re.search(r'\w+:\/\/[\w\d\-._]+', url)
     html = str()
-    src = str()
-    ref = src
-    s1 = True
-    s2 = True
-    s3 = True
+    string = None
     articles = get_articles(soup)
-    print(articles[:2])
-    for i in articles[:2]:
+    for ch in articles:
         try:
-            if re.search(r'h[1-6]', str(i.name)):
-               html += str(i)
-            for ch in i.descendants:
+            if isinstance(ch, Tag):
+                if re.search(r'h[1-6]', str(ch.name)):
+                    html += str(ch)
                 if ch.name == 'div':
-                    if ch.attrs == {} or re.compile('jsx|title|text').search(str(ch.attrs)):
-                        html += str(get_href(d, ch))
+                    try:
+                        if ch.attrs == {} or re.compile('jsx|title|text').search(str(ch.attrs)):
+                            html += str(get_href(d, ch))
+                    except IndexError:
+                        pass
+                if ch.find('a', class_=True):
+                    ch.clear()
                 if re.compile('ul|ol').search(str(ch.name)) and not ch.get('class'):
                     html += '<ul>'
                     for element in ch.children:
@@ -94,27 +100,51 @@ def parse_url(url=None):
                 if ch.name == 'img':
                     w = str()
                     h = str()
-                    match = re.search(r'\w+:\/\/\w+.[\w\d\-_]+\.[\w]+', str(ch))
+                    pattern = r"\w+:\/\/[\w\d\/-_\.]+\b"
+                    if ch.get('srcset'):
+                        match = re.search(pattern, ch.get('srcset'))
+                        string = match[0]
+                        print(string)
+                    elif ch.get('src'):
+                        match = re.search(pattern, ch.get('src'))
+                        string = match[0]
                     try:
                         if ch.get('width'):
-                            w = str(i['width'])
+                            w = str(ch['width'])
                         if ch.get('height'):
-                            h = str(i['height'])
+                            h = str(ch['height'])
                     except KeyError:
                         pass
-                    if match:
-                        m = re.search(r'\w+:\/\/[\w\-\.]+[\/\w\-]+[\w\/\.]+', str(ch))
-                        ref = m.group(0)
-                        node = f'<img src="{ref}" class="article_img" width={w}, height={h} alt="">'
+                    if string:
+                        ref = string
+                        # response = requests.get(ref)
+                        # image = Image.open(BytesIO(response.content))
+                        # width = image.width
+                        # height = image.height
+                        # if width >= 480:
+                        if ref not in html:
+                            html += f'<img src="{ref}" class="article_img" alt="">'
+                        else:
+                            continue
                     else:
-                        match = re.search(r'[\w\/ \-\.]*', str(ch['src']))
-                        ref = f'{d[0]}{match[0]}'
-                        node = f'<img src="{ref}" class="article_img" width={w} height={h} alt="">'
-                    html += node
+                        match = re.search(r'src="([\w\/ \-\.]+)"', str(ch))
+                        ref = f'{d[0]}{match[1]}'
+                        # print(match[0])
+                        # response = requests.get(ref)
+                        # print(response.url)
+                        # image = Image.open(BytesIO(response.content))
+                        # width = image.width
+                        # height = image.height
+                        # if width >= 480:
+                        html += f'<img src="{ref}" class="article_img" alt="">'
+                        # else:
+                        #     continue
         except:
             print(traceback.format_exc())
             continue
+
     html = re.sub(r'[\[\]]', '', html)
+    print(html)
     return html
 
 def truncate(text, n):
